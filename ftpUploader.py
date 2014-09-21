@@ -391,6 +391,16 @@ class Example(QWidget):
 
 
 
+    def tprint(self, line):
+
+        if not self.terminal.toPlainText():
+            self.terminal.setText(str(line))
+        else:
+            self.terminal.setText(str(self.terminal.toPlainText()) + '\n' + line)
+
+        self.terminal.verticalScrollBar().setValue(self.terminal.verticalScrollBar().maximum())
+
+
     def connectToFtpRoot(self):
 
         print 'showFtpDialog()'
@@ -402,10 +412,7 @@ class Example(QWidget):
 
         if self.ftp_host:
 
-            self.terminal.setText('Connected to ' + str(self.hostEdit.text()))
-
-            self.terminal.verticalScrollBar().setValue(self.terminal.verticalScrollBar().maximum())
-
+            self.tprint('Connected to ' + str(self.hostEdit.text()))
             self.getFtpDir()
 
 
@@ -414,10 +421,7 @@ class Example(QWidget):
         print 'Changing to ' + dirName
 
         self.ftp_host.chdir(dirName)            
-        self.terminal.setText(str(self.terminal.toPlainText()) + 
-                              '\nCHDIR to ' + 
-                              str(self.hostEdit.text()).rstrip('/') + '/' + self.ftp_host.getcwd())            
-        self.terminal.verticalScrollBar().setValue(self.terminal.verticalScrollBar().maximum())
+        self.tprint(str(self.hostEdit.text()).rstrip('/') + '/' + self.ftp_host.getcwd())            
         
         self.getFtpDir()
 
@@ -781,7 +785,31 @@ class Example(QWidget):
         ftp_host = ftputil.FTPHost(str(self.hostEdit.text()),
                                    str(self.usernameEdit.text()),
                                    str(self.passwordEdit.text()))
+
+
+        #save on successful connection
+        if ftp_host:
+            self.savePreset()
+
         return ftp_host
+
+
+
+    def extractFiles(self, dirDict):
+
+        #step through the tree, filter out files
+        #recursive!
+
+        for file in dirDict['filenames']:
+            self.files.append(dirDict['dirpath'].rstrip('/') + '/' + file)
+
+        for dir in dirDict['directories']:
+            self.extractFiles(dir)
+
+
+
+    def callback(self):
+        print 'blah'
 
 
     def uploadFiles(self):
@@ -789,17 +817,28 @@ class Example(QWidget):
 
         print 'uploadFiles()'
 
-        #save on successful connection
-        if self.connectToHost():
-            self.savePreset()
+        self.files = []
+        self.extractFiles(self.dirDict)
 
-        """
-        ftpConnection = FtpConnect(webhost = 'www.davidbasalla3d.com',
-                                   username = 'web250',
-                                   password = '6lvrxwnf',
-                                   targetPath = 'html')
-        """
+        print 'UPLOADING:'
+        print self.files
 
+        def callback(chunk):
+            print 'blah'
+            self.tprint('Successfully uploaded file')
+
+        for filename in self.files:
+
+            self.tprint('Uploading file: ' + filename)
+            targetPath = str(self.targetEdit.text()).rstrip('/') + '/' + filename.split('/')[-1]
+
+            self.ftp_host.upload(source = filename, target = targetPath, callback = callback)
+
+        print 'Upload done'
+        self.tprint(str(len(self.files)) + ' file(s) uploaded!')
+
+
+    
 
 
 #######################################################################
