@@ -10,6 +10,7 @@ Tool for uploading HTML, CSS and JS to FTP Site
 import sys
 import os
 from ftplib import FTP
+import ftputil
 import time
 import json
 
@@ -39,6 +40,7 @@ class Example(QWidget):
         #INTERNAL DATA #################
 
         self.treeViewToggle = True
+
         self.fileCounter = 0
         self.binPath = '/Users/davidbasalla/Scripts/ftpUploader/'
         self.presetDict = {}
@@ -65,7 +67,7 @@ class Example(QWidget):
         self.frameLeftTop.setFrameStyle(QFrame.Box | QFrame.Raised);
         self.frameLeftTop.setLineWidth(1);
         
-        self.pathLabel = QLabel('Current Path')
+        self.pathLabel = QLabel('Local:')
         self.pathEdit = QLineEdit(os.getcwd())
         self.pathEdit.setMinimumWidth(300)        
         self.pathEdit.textChanged.connect(self.populateFileList)
@@ -75,11 +77,6 @@ class Example(QWidget):
 
 
 
-        self.targetLabel = QLabel('Target')
-        self.targetEdit = QLineEdit()
-        #self.targetEdit.textChanged.connect(self.populateFileList)
-
-
         ### MIDDLE LEFT ########################################################
 
         self.frameLeftMiddle = QFrame()
@@ -87,12 +84,19 @@ class Example(QWidget):
         self.frameLeftMiddle.setLineWidth(1);
 
 
-        self.currentLabel = QLabel('current')
-        self.recursiveLabel = QLabel('recursive')
+        self.currentLabel = QLabel('Current:')
+        self.currentLabel.setMinimumWidth(75)
+        self.recursiveLabel = QLabel('Recursive:')
 
         self.htmlLabel = QLabel('HTML')
+        self.htmlLabel.setMinimumWidth(75)
+        
         self.cssLabel = QLabel('CSS')
+        self.cssLabel.setMinimumWidth(75)
+
         self.jsLabel = QLabel('JavaScript')
+        self.jsLabel.setMinimumWidth(75)
+
         self.otherEdit = QLineEdit()
         self.otherEdit.editingFinished.connect(self.populateFileList)
 
@@ -133,6 +137,9 @@ class Example(QWidget):
         self.mirrorCheckbox = QCheckBox("Mirror File Structure")
 
 
+ 
+
+
         ### BOTTOM LEFT ########################################################
 
         self.frameLeftBottom = QFrame()
@@ -152,6 +159,9 @@ class Example(QWidget):
         self.loadWebPresetsLabel = QLabel('Load Preset')
         self.loadWebPresetsEdit = QComboBox()
 
+        self.connectButton = QPushButton('Connect')
+        self.connectButton.clicked.connect(self.connectToFtpRoot)
+
         #populate the combobox
         self.loadPresets()
         self.loadWebPresetsEdit.addItem('None')
@@ -168,16 +178,53 @@ class Example(QWidget):
         self.frameRight.setFrameStyle(QFrame.Box | QFrame.Raised);
         self.frameRight.setLineWidth(1);
 
-        self.filePreviewBtn1 = QPushButton('List View')
+        self.filePreviewBtn1 = QPushButton('L')
         self.filePreviewBtn1.clicked.connect(lambda: self.setFilePreviewType(False))
-        self.filePreviewBtn2 = QPushButton('Tree View')
+        self.filePreviewBtn2 = QPushButton('T')
         self.filePreviewBtn2.clicked.connect(lambda: self.setFilePreviewType(True))
 
         self.filePreview = QTreeWidget()
         self.filePreview.setHeaderLabels(['File Preview','x'])
         self.filePreview.setColumnCount(1)
+        self.filePreview.setMinimumHeight(200)
 
         self.fileCountPreview = QLabel('Files to be uploaded: 0')
+
+
+
+        ### FTP PREVIEW  ########################################################
+
+        self.frameFarRight = QFrame()
+        self.frameFarRight.setFrameStyle(QFrame.Box | QFrame.Raised);
+        self.frameFarRight.setLineWidth(1);
+
+        
+        #self.ftpPreviewLabel = QPushButton('List View')
+
+        self.targetLabel = QLabel('Ftp:')
+        self.targetEdit = QLineEdit()        
+        self.targetOpenButton = QPushButton('Open')
+        #self.targetEdit.textChanged.connect(self.populateFileList)
+
+
+
+        self.ftpPreview = QTreeWidget()
+        self.ftpPreview.setHeaderLabels(['File Preview','x'])
+        self.ftpPreview.itemDoubleClicked.connect(self.itemDoubleClicked)
+        self.ftpPreview.itemClicked.connect(self.itemClicked)
+        self.ftpPreview.setColumnCount(1)
+
+
+
+        ### TERMINAL ###########################################
+
+        self.terminal = QTextEdit()  
+        #self.terminal.setMinimumHeight(50)
+        #self.terminal.setMaximumHeight(200)
+        self.terminal.setFixedHeight(40)
+        self.terminal.setReadOnly(True)
+
+
 
 
 
@@ -218,45 +265,44 @@ class Example(QWidget):
         #leftTopLayout.setFrameStyle(QFrame.Panel | QFrame.Sunken)
         #leftTopLayout.setLineWidth(2)
 
-        leftTopLayout.addWidget(self.currentLabel, 0, 1)
-        leftTopLayout.addWidget(self.recursiveLabel, 0, 2)
+        leftTopLayout.addWidget(self.currentLabel, 1, 0)
+        leftTopLayout.addWidget(self.recursiveLabel, 2, 0)
 
-        leftTopLayout.addWidget(self.htmlLabel, 1, 0)
+        leftTopLayout.addWidget(self.htmlLabel, 0, 1)
         leftTopLayout.addWidget(self.checkboxHtmlCur, 1, 1)
-        leftTopLayout.addWidget(self.checkboxHtmlRec, 1, 2)
+        leftTopLayout.addWidget(self.checkboxHtmlRec, 2, 1)
 
-        leftTopLayout.addWidget(self.cssLabel, 2, 0)
-        leftTopLayout.addWidget(self.checkboxCssCur, 2, 1)
+        leftTopLayout.addWidget(self.cssLabel, 0, 2)
+        leftTopLayout.addWidget(self.checkboxCssCur, 1, 2)
         leftTopLayout.addWidget(self.checkboxCssRec, 2, 2)
 
-        leftTopLayout.addWidget(self.jsLabel, 3, 0)
-        leftTopLayout.addWidget(self.checkboxJsCur, 3, 1)
-        leftTopLayout.addWidget(self.checkboxJsRec, 3, 2)
+        leftTopLayout.addWidget(self.jsLabel, 0, 3)
+        leftTopLayout.addWidget(self.checkboxJsCur, 1, 3)
+        leftTopLayout.addWidget(self.checkboxJsRec, 2, 3)
 
-        leftTopLayout.addWidget(self.otherEdit, 4, 0)
-        leftTopLayout.addWidget(self.checkboxOtherCur, 4, 1)
-        leftTopLayout.addWidget(self.checkboxOtherRec, 4, 2)
+        leftTopLayout.addWidget(self.otherEdit, 0, 4)
+        leftTopLayout.addWidget(self.checkboxOtherCur, 1, 4)
+        leftTopLayout.addWidget(self.checkboxOtherRec, 2, 4)
 
         #############################
 
-        leftBottomLayout = QGridLayout()
+        leftBottomLayout = QHBoxLayout()
         
-        leftBottomLayout.addWidget(self.hostLabel, 0, 0)
-        leftBottomLayout.addWidget(self.hostEdit, 0, 1)
+        leftBottomLayout.addWidget(self.hostLabel)
+        leftBottomLayout.addWidget(self.hostEdit)
 
-        leftBottomLayout.addWidget(self.usernameLabel, 1, 0)
-        leftBottomLayout.addWidget(self.usernameEdit, 1, 1)
+        leftBottomLayout.addWidget(self.usernameLabel)
+        leftBottomLayout.addWidget(self.usernameEdit)
 
-        leftBottomLayout.addWidget(self.passwordLabel, 2, 0)
-        leftBottomLayout.addWidget(self.passwordEdit, 2, 1)
+        leftBottomLayout.addWidget(self.passwordLabel)
+        leftBottomLayout.addWidget(self.passwordEdit)
 
 
         pathLayout = QGridLayout()
         pathLayout.addWidget(self.pathLabel, 0, 0)
         pathLayout.addWidget(self.pathEdit, 0 ,1 )
         pathLayout.addWidget(self.pathButton, 0 ,2 )
-        pathLayout.addWidget(self.targetLabel, 1, 0)
-        pathLayout.addWidget(self.targetEdit, 1, 1)
+
         self.frameLeftTop.setLayout(pathLayout)
         
 
@@ -271,11 +317,21 @@ class Example(QWidget):
         presetsLayout.addStretch(2000)
         presetsLayout.addWidget(self.loadWebPresetsLabel)
         presetsLayout.addWidget(self.loadWebPresetsEdit)
+        presetsLayout.addWidget(self.connectButton)
+
+
+
+        targetLayout = QGridLayout()
+        targetLayout.addWidget(self.targetLabel, 0, 0)
+        targetLayout.addWidget(self.targetEdit, 0, 1)
+        targetLayout.addWidget(self.targetOpenButton, 0, 2)
 
 
         frameLeftBottomLayout = QVBoxLayout()
         frameLeftBottomLayout.addLayout(leftBottomLayout)
         frameLeftBottomLayout.addLayout(presetsLayout)
+        #frameLeftBottomLayout.addSpacing(10)
+        #frameLeftBottomLayout.addLayout(targetLayout)
         self.frameLeftBottom.setLayout(frameLeftBottomLayout)
 
         leftLayout = QVBoxLayout()
@@ -287,6 +343,10 @@ class Example(QWidget):
 
 
         filePreviewButtonLayout = QHBoxLayout()
+        filePreviewButtonLayout.addWidget(self.pathLabel)
+        filePreviewButtonLayout.addWidget(self.pathEdit)
+        filePreviewButtonLayout.addWidget(self.pathButton)
+
         filePreviewButtonLayout.addWidget(self.filePreviewBtn1)
         filePreviewButtonLayout.addWidget(self.filePreviewBtn2)
 
@@ -298,20 +358,125 @@ class Example(QWidget):
         self.frameRight.setLayout(rightLayout)
 
 
+        farRightLayout = QVBoxLayout()
+        farRightLayout.addLayout(targetLayout)
+        farRightLayout.addWidget(self.ftpPreview)
+        #farRightLayout.addWidget(self.fileCountPreview)
+        self.frameFarRight.setLayout(farRightLayout)
+
+
         topLayout.addLayout(leftLayout)
         topLayout.addSpacing(20)
         topLayout.addWidget(self.frameRight)
-
+        topLayout.addWidget(self.frameFarRight)
 
         bottomLayout.addStretch(1000)
         bottomLayout.addWidget(self.uploadButton)
         bottomLayout.addWidget(self.cancelButton)
 
-        mainLayout.addLayout(topLayout)
+
+        dirPreviewLayout = QHBoxLayout()
+        dirPreviewLayout.addWidget(self.frameRight)
+        dirPreviewLayout.addWidget(self.frameFarRight)
+
+
+        mainLayout.addWidget(self.frameLeftBottom)
+        mainLayout.addWidget(self.frameLeftMiddle)
+        mainLayout.addLayout(dirPreviewLayout)
+        mainLayout.addWidget(self.terminal)
         mainLayout.addLayout(bottomLayout)
  
 
         self.setLayout(mainLayout)
+
+
+
+    def connectToFtpRoot(self):
+
+        print 'showFtpDialog()'
+
+        self.ftp_host = self.connectToHostUtil()
+
+        self.ftpCurDirList = []
+        self.ftpCurFileList = []
+
+        if self.ftp_host:
+
+            self.terminal.setText('Connected to ' + str(self.hostEdit.text()))
+
+            self.terminal.verticalScrollBar().setValue(self.terminal.verticalScrollBar().maximum())
+
+            self.getFtpDir()
+
+
+    def setFtpDir(self, dirName):
+
+        print 'Changing to ' + dirName
+
+        self.ftp_host.chdir(dirName)            
+        self.terminal.setText(str(self.terminal.toPlainText()) + 
+                              '\nCHDIR to ' + 
+                              str(self.hostEdit.text()).rstrip('/') + '/' + self.ftp_host.getcwd())            
+        self.terminal.verticalScrollBar().setValue(self.terminal.verticalScrollBar().maximum())
+        
+        self.getFtpDir()
+
+
+    def getFtpDir(self):
+
+        self.ftpCurDirList = []
+        self.ftpCurFileList = []
+
+        names = self.ftp_host.listdir(self.ftp_host.curdir)
+        for name in names:
+            if self.ftp_host.path.isdir(name):
+                self.ftpCurDirList.append(name)
+            if self.ftp_host.path.isfile(name):
+                self.ftpCurFileList.append(name)
+            
+        self.renderFtpPreview()
+                    
+
+    def renderFtpPreview(self):
+
+        self.ftpPreview.clear()
+
+        itemRootDir = QTreeWidgetItem()
+        itemRootDir.setText(0, '..')
+        itemRootDir.setForeground(0, QBrush(QColor(175, 175, 175, 255)))
+        self.ftpPreview.addTopLevelItem(itemRootDir)
+
+        for elem in self.ftpCurDirList:
+
+            #create root Item
+            itemRootDir = QTreeWidgetItem()
+            itemRootDir.setText(0, elem + '/')
+            itemRootDir.setForeground(0, QBrush(QColor(175, 175, 175, 255)))
+            #itemRootDir.setChildIndicatorPolicy(0)
+
+
+            #add topLevelDir to tree
+            self.ftpPreview.addTopLevelItem(itemRootDir)
+            #self.ftpPreview.expandItem(itemRootDir)
+
+        for elem in self.ftpCurFileList:
+
+            #create root Item
+            itemRootDir = QTreeWidgetItem()
+            itemRootDir.setText(0, elem)
+
+            #add topLevelDir to tree
+            self.ftpPreview.addTopLevelItem(itemRootDir)
+
+
+    def itemDoubleClicked(self, item, column):
+        dirName = item.text(0)
+        self.setFtpDir(str(dirName).rstrip('/'))
+        self.targetEdit.setText(self.ftp_host.getcwd())
+
+    def itemClicked(self, item, column):
+        dirName = item.text(0)
+        self.targetEdit.setText(self.ftp_host.getcwd().rstrip('/') + '/' + dirName)
 
 
 
@@ -596,19 +761,36 @@ class Example(QWidget):
         self.passwordEdit.setText(pwd)
 
 
+
+    def connectToHost(self):
+
+        ftpCon = FtpConnect(webhost = str(self.hostEdit.text()),
+                            username = str(self.usernameEdit.text()),
+                            password = str(self.passwordEdit.text()),
+                            targetPath = str(self.targetEdit.text()))
+
+        if ftpCon.connectStatus:
+            return ftpCon
+        else:
+            return None
+
+
+    def connectToHostUtil(self):
+
+        #need error catching here
+        ftp_host = ftputil.FTPHost(str(self.hostEdit.text()),
+                                   str(self.usernameEdit.text()),
+                                   str(self.passwordEdit.text()))
+        return ftp_host
+
+
     def uploadFiles(self):
         """ function for uploading files, does the connection and uploads all files """
 
         print 'uploadFiles()'
 
-
-        ftpConnection = FtpConnect(webhost = str(self.hostEdit.text()),
-                                   username = str(self.usernameEdit.text()),
-                                   password = str(self.passwordEdit.text()),
-                                   targetPath = str(self.targetEdit.text()))
-
         #save on successful connection
-        if ftpConnection.connectStatus:
+        if self.connectToHost():
             self.savePreset()
 
         """
