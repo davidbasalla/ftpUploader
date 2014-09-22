@@ -46,6 +46,8 @@ class Example(QWidget):
         self.presetDict = {}
         self.presetDict['presets'] = []
 
+        self.ftp_host = None
+
 
         ################################
 
@@ -827,15 +829,22 @@ class Example(QWidget):
             print 'blah'
             self.tprint('Successfully uploaded file')
 
-        for filename in self.files:
+        if not self.ftp_host:
+            self.ftp_host = self.connectToHostUtil()
 
-            self.tprint('Uploading file: ' + filename)
-            targetPath = str(self.targetEdit.text()).rstrip('/') + '/' + filename.split('/')[-1]
+        if not self.ftp_host:
+            self.tprint('ERROR: Could not connect to host')
 
-            self.ftp_host.upload(source = filename, target = targetPath, callback = callback)
+        else:
+            for filename in self.files:
 
-        print 'Upload done'
-        self.tprint(str(len(self.files)) + ' file(s) uploaded!')
+                self.tprint('Uploading file: ' + filename)
+                targetPath = str(self.targetEdit.text()).rstrip('/') + '/' + filename.split('/')[-1]
+
+                self.ftp_host.upload(source = filename, target = targetPath, callback = callback)
+
+            print 'Upload done'
+            self.tprint(str(len(self.files)) + ' file(s) uploaded!')
 
 
     
